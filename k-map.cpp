@@ -1,10 +1,18 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <set>
+#include <map>
+#include <cmath>
+#include <algorithm>
 
 using namespace std;
 
 struct Implicant {
     string mask; // e.g., "0-101"
-    set minterms;
+    set<int> minterms;
     bool used = false;
 
     bool operator<(const Implicant& other) const {
@@ -14,7 +22,7 @@ struct Implicant {
 };
 
 // Return standard Gray Code sequence based on bit length (1 to 3 bits)
-vector getGrayCode(int bits) {
+vector<string> getGrayCode(int bits) {
     if (bits == 1) return {"0", "1"};
     if (bits == 2) return {"00", "01", "11", "10"};
     if (bits == 3) return {"000", "001", "011", "010", "110", "111", "101", "100"};
@@ -22,7 +30,7 @@ vector getGrayCode(int bits) {
 }
 
 // Convert mask representation (e.g., "0-10") to readable Boolean expression
-string maskToExpression(const string& mask, const vector& varNames) {
+string maskToExpression(const string& mask, const vector<char>& varNames) {
     string expr = "";
     for (size_t i = 0; i < mask.size(); ++i) {
         if (mask[i] == '1') {
@@ -48,8 +56,8 @@ bool canCombine(const Implicant& a, const Implicant& b, string& combinedMask) {
 }
 
 // Quine-McCluskey Algorithm
-vector getPrimeImplicants(const vector& minterms, int numVars) {
-    vector currentGroup;
+vector<Implicant> getPrimeImplicants(const vector<int>& minterms, int numVars) {
+    vector<Implicant> currentGroup;
     for (int m : minterms) {
         string bin = "";
         for (int i = numVars - 1; i >= 0; --i) {
@@ -58,11 +66,11 @@ vector getPrimeImplicants(const vector& minterms, int numVars) {
         currentGroup.push_back({bin, {m}, false});
     }
 
-    set primeImplicants;
+    set<Implicant> primeImplicants;
 
     while (!currentGroup.empty()) {
-        vector nextGroup;
-        set addedMasks;
+        vector<Implicant> nextGroup;
+        set<string> addedMasks;
 
         for (size_t i = 0; i < currentGroup.size(); ++i) {
             for (size_t j = i + 1; j < currentGroup.size(); ++j) {
@@ -73,7 +81,7 @@ vector getPrimeImplicants(const vector& minterms, int numVars) {
 
                     if (addedMasks.find(combinedMask) == addedMasks.end()) {
                         addedMasks.insert(combinedMask);
-                        set combinedMinterms = currentGroup[i].minterms;
+                        set<int> combinedMinterms = currentGroup[i].minterms;
                         combinedMinterms.insert(currentGroup[j].minterms.begin(), currentGroup[j].minterms.end());
                         nextGroup.push_back({combinedMask, combinedMinterms, false});
                     }
@@ -89,26 +97,26 @@ vector getPrimeImplicants(const vector& minterms, int numVars) {
         currentGroup = nextGroup;
     }
 
-    return vector(primeImplicants.begin(), primeImplicants.end());
+    return vector<Implicant>(primeImplicants.begin(), primeImplicants.end());
 }
 
 // Petrick's Method to find all minimal covering combinations
-vector> solvePetrick(const vector& PIs, const vector& minterms) {
-    map> coverage;
+vector<vector<Implicant>> solvePetrick(const vector<Implicant>& PIs, const vector<int>& minterms) {
+    map<int, vector<int>> coverage;
     for (size_t i = 0; i < PIs.size(); ++i) {
         for (int m : PIs[i].minterms) {
             coverage[m].push_back(i);
         }
     }
 
-    set> pos;
+    set<set<int>> pos;
     pos.insert({});
 
     for (int m : minterms) {
-        set> newPos;
+        set<set<int>> newPos;
         for (const auto& term : pos) {
             for (int piIdx : coverage[m]) {
-                set newTerm = term;
+                set<int> newTerm = term;
                 newTerm.insert(piIdx);
                 newPos.insert(newTerm);
             }
@@ -123,10 +131,10 @@ vector> solvePetrick(const vector& PIs, const vector& minterms) {
         }
     }
 
-    vector> minCovers;
+    vector<vector<Implicant>> minCovers;
     for (const auto& cover : pos) {
         if (cover.size() == minSize) {
-            vector solution;
+            vector<Implicant> solution;
             for (int idx : cover) {
                 solution.push_back(PIs[idx]);
             }
@@ -146,13 +154,13 @@ int main() {
         return 1;
     }
 
-    vector> matrix;
+    vector<vector<int>> matrix;
     string line;
 
     // Read the matrix line by line to determine order dynamically
     while (getline(infile, line)) {
         stringstream ss(line);
-        vector row;
+        vector<int> row;
         int val;
         while (ss >> val) {
             row.push_back(val);
@@ -181,14 +189,14 @@ int main() {
         return 1;
     }
 
-    vector allVars = {'a', 'b', 'c', 'd', 'e'};
-    vector activeVars(allVars.begin(), allVars.begin() + numVars);
+    vector<char> allVars = {'a', 'b', 'c', 'd', 'e'};
+    vector<char> activeVars(allVars.begin(), allVars.begin() + numVars);
 
-    vector rowGray = getGrayCode(rowBits);
-    vector colGray = getGrayCode(colBits);
+    vector<string> rowGray = getGrayCode(rowBits);
+    vector<string> colGray = getGrayCode(colBits);
 
     // Extract minterms mapping through Gray code
-    vector minterms;
+    vector<int> minterms;
     for (int r = 0; r < R; ++r) {
         for (int c = 0; c < C; ++c) {
             if (matrix[r][c] == 1) {
@@ -216,8 +224,8 @@ int main() {
     }
 
     // Solve for minimal expressions
-    vector PIs = getPrimeImplicants(minterms, numVars);
-    vector> minimalCovers = solvePetrick(PIs, minterms);
+    vector<Implicant> PIs = getPrimeImplicants(minterms, numVars);
+    vector<vector<Implicant>> minimalCovers = solvePetrick(PIs, minterms);
 
     cout << "Possible Minimized Boolean Expression(s):" << endl;
     for (const auto& cover : minimalCovers) {
